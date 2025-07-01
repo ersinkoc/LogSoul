@@ -1,0 +1,43 @@
+import { LogDiscovery } from './discovery';
+import { LogParser } from './parser';
+import { Storage } from './storage';
+import { FileMonitor } from './monitor';
+import { LogAnalyzer } from './analyzer';
+import { AlertManager } from './alerts';
+import { Config } from './types';
+export declare class LogSoulApp {
+    private config;
+    private storage;
+    private discovery;
+    private parser;
+    private monitor;
+    private analyzer;
+    private alertManager;
+    private server?;
+    constructor(configPath?: string);
+    private loadConfig;
+    private getDefaultConfig;
+    private setupEventHandlers;
+    initialize(): Promise<void>;
+    startServer(port?: number, host?: string): Promise<void>;
+    discoverAndAdd(): Promise<void>;
+    analyzeDomain(domainName: string, timeRange?: string): Promise<void>;
+    generateHealthScores(): Promise<void>;
+    cleanupOldData(): Promise<void>;
+    shutdown(): Promise<void>;
+    getStorage(): Storage;
+    getDiscovery(): LogDiscovery;
+    getParser(): LogParser;
+    getMonitor(): FileMonitor;
+    getAnalyzer(): LogAnalyzer;
+    getAlertManager(): AlertManager;
+    getConfig(): Config;
+}
+export * from './types';
+export { LogDiscovery } from './discovery';
+export { LogParser } from './parser';
+export { Storage } from './storage';
+export { FileMonitor } from './monitor';
+export { LogAnalyzer } from './analyzer';
+export { AlertManager } from './alerts';
+//# sourceMappingURL=index.d.ts.map

@@ -1,0 +1,314 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PluginManager = void 0;
+const events_1 = require("events");
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
+class PluginManager extends events_1.EventEmitter {
+    constructor(pluginsDir = './plugins') {
+        super();
+        this.plugins = new Map();
+        this.pluginPaths = new Map();
+        this.pluginsDir = pluginsDir;
+        this.ensurePluginsDirectory();
+    }
+    ensurePluginsDirectory() {
+        if (!fs.existsSync(this.pluginsDir)) {
+            fs.mkdirSync(this.pluginsDir, { recursive: true });
+            console.log(`📁 Created plugins directory: ${this.pluginsDir}`);
+        }
+    }
+    async loadPlugin(pluginPath) {
+        try {
+            console.log(`🔌 Loading plugin from: ${pluginPath}`);
+            // Read plugin metadata
+            const packagePath = path.join(pluginPath, 'package.json');
+            if (!fs.existsSync(packagePath)) {
+                throw new Error('Plugin package.json not found');
+            }
+            const metadata = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+            // Validate plugin
+            this.validatePlugin(metadata);
+            // Check if plugin already loaded
+            if (this.plugins.has(metadata.name)) {
+                console.warn(`⚠️  Plugin ${metadata.name} already loaded`);
+                return false;
+            }
+            // Load plugin module
+            const mainPath = path.join(pluginPath, metadata.main);
+            delete require.cache[require.resolve(mainPath)]; // Clear cache for hot reload
+            const PluginClass = require(mainPath).default || require(mainPath);
+            const plugin = new PluginClass();
+            // Verify plugin implements required interface
+            if (!plugin.name || !plugin.version) {
+                throw new Error('Plugin must implement name and version properties');
+            }
+            // Store plugin
+            this.plugins.set(metadata.name, plugin);
+            this.pluginPaths.set(metadata.name, pluginPath);
+            // Call plugin onLoad hook
+            if (plugin.onLoad) {
+                await plugin.onLoad();
+            }
+            console.log(`✅ Plugin loaded: ${metadata.name} v${metadata.version}`);
+            this.emit('plugin:loaded', metadata.name, plugin);
+            return true;
+        }
+        catch (error) {
+            console.error(`❌ Failed to load plugin from ${pluginPath}:`, error);
+            return false;
+        }
+    }
+    async unloadPlugin(pluginName) {
+        try {
+            const plugin = this.plugins.get(pluginName);
+            if (!plugin) {
+                console.warn(`⚠️  Plugin ${pluginName} not found`);
+                return false;
+            }
+            console.log(`🔌 Unloading plugin: ${pluginName}`);
+            // Call plugin onUnload hook
+            if (plugin.onUnload) {
+                await plugin.onUnload();
+            }
+            // Remove plugin
+            this.plugins.delete(pluginName);
+            this.pluginPaths.delete(pluginName);
+            console.log(`✅ Plugin unloaded: ${pluginName}`);
+            this.emit('plugin:unloaded', pluginName);
+            return true;
+        }
+        catch (error) {
+            console.error(`❌ Failed to unload plugin ${pluginName}:`, error);
+            return false;
+        }
+    }
+    async discoverPlugins() {
+        const discoveredPlugins = [];
+        if (!fs.existsSync(this.pluginsDir)) {
+            return discoveredPlugins;
+        }
+        const items = fs.readdirSync(this.pluginsDir);
+        for (const item of items) {
+            const itemPath = path.join(this.pluginsDir, item);
+            const packagePath = path.join(itemPath, 'package.json');
+            if (fs.statSync(itemPath).isDirectory() && fs.existsSync(packagePath)) {
+                discoveredPlugins.push(itemPath);
+            }
+        }
+        console.log(`🔍 Discovered ${discoveredPlugins.length} plugins`);
+        return discoveredPlugins;
+    }
+    async loadAllPlugins() {
+        const pluginPaths = await this.discoverPlugins();
+        for (const pluginPath of pluginPaths) {
+            await this.loadPlugin(pluginPath);
+        }
+    }
+    async reloadPlugin(pluginName) {
+        const pluginPath = this.pluginPaths.get(pluginName);
+        if (!pluginPath) {
+            console.error(`❌ Plugin path not found for: ${pluginName}`);
+            return false;
+        }
+        await this.unloadPlugin(pluginName);
+        return await this.loadPlugin(pluginPath);
+    }
+    // Event dispatchers
+    async onLogEntry(entry) {
+        for (const [name, plugin] of this.plugins) {
+            try {
+                if (plugin.onLogEntry) {
+                    await plugin.onLogEntry(entry);
+                }
+            }
+            catch (error) {
+                console.error(`❌ Plugin ${name} onLogEntry error:`, error);
+            }
+        }
+    }
+    async onDomainAdded(domain) {
+        for (const [name, plugin] of this.plugins) {
+            try {
+                if (plugin.onDomainAdded) {
+                    await plugin.onDomainAdded(domain);
+                }
+            }
+            catch (error) {
+                console.error(`❌ Plugin ${name} onDomainAdded error:`, error);
+            }
+        }
+    }
+    async onAlert(alert) {
+        for (const [name, plugin] of this.plugins) {
+            try {
+                if (plugin.onAlert) {
+                    await plugin.onAlert(alert);
+                }
+            }
+            catch (error) {
+                console.error(`❌ Plugin ${name} onAlert error:`, error);
+            }
+        }
+    }
+    // Data processors
+    async processLogLine(line, domain) {
+        for (const [name, plugin] of this.plugins) {
+            try {
+                if (plugin.processLogLine) {
+                    const result = await plugin.processLogLine(line, domain);
+                    if (result) {
+                        return result; // Return first successful parse
+                    }
+                }
+            }
+            catch (error) {
+                console.error(`❌ Plugin ${name} processLogLine error:`, error);
+            }
+        }
+        return null;
+    }
+    async analyzeTraffic(entries) {
+        const results = [];
+        for (const [name, plugin] of this.plugins) {
+            try {
+                if (plugin.analyzeTraffic) {
+                    const result = await plugin.analyzeTraffic(entries);
+                    if (result) {
+                        results.push({ plugin: name, data: result });
+                    }
+                }
+            }
+            catch (error) {
+                console.error(`❌ Plugin ${name} analyzeTraffic error:`, error);
+            }
+        }
+        return results;
+    }
+    // Plugin management
+    getLoadedPlugins() {
+        return Array.from(this.plugins.entries()).map(([name, plugin]) => ({ name, plugin }));
+    }
+    getPlugin(name) {
+        return this.plugins.get(name);
+    }
+    isPluginLoaded(name) {
+        return this.plugins.has(name);
+    }
+    // Route collection for web server
+    getAllRoutes() {
+        const routes = [];
+        for (const [name, plugin] of this.plugins) {
+            try {
+                if (plugin.getRoutes) {
+                    const pluginRoutes = plugin.getRoutes();
+                    for (const route of pluginRoutes) {
+                        routes.push({
+                            plugin: name,
+                            method: route.method,
+                            path: `/api/plugins/${name}${route.path}`,
+                            handler: route.handler
+                        });
+                    }
+                }
+            }
+            catch (error) {
+                console.error(`❌ Plugin ${name} getRoutes error:`, error);
+            }
+        }
+        return routes;
+    }
+    // Plugin installation
+    async installPlugin(pluginUrl) {
+        try {
+            console.log(`📦 Installing plugin from: ${pluginUrl}`);
+            // This is a simplified implementation
+            // In production, you'd want to:
+            // 1. Download and verify the plugin
+            // 2. Check dependencies
+            // 3. Run security scans
+            // 4. Install to plugins directory
+            console.log(`✅ Plugin installation would be implemented here`);
+            return true;
+        }
+        catch (error) {
+            console.error(`❌ Plugin installation failed:`, error);
+            return false;
+        }
+    }
+    validatePlugin(metadata) {
+        const required = ['name', 'version', 'description', 'author', 'main', 'logsoul_version'];
+        for (const field of required) {
+            if (!(field in metadata)) {
+                throw new Error(`Plugin metadata missing required field: ${field}`);
+            }
+        }
+        // Check LogSoul version compatibility
+        if (metadata.logsoul_version !== '1.0.0') {
+            console.warn(`⚠️  Plugin ${metadata.name} may be incompatible (requires LogSoul ${metadata.logsoul_version})`);
+        }
+    }
+    // Plugin configuration
+    async getPluginConfig(pluginName) {
+        const plugin = this.plugins.get(pluginName);
+        if (!plugin || !plugin.getConfig) {
+            return null;
+        }
+        try {
+            return await plugin.getConfig();
+        }
+        catch (error) {
+            console.error(`❌ Failed to get config for plugin ${pluginName}:`, error);
+            return null;
+        }
+    }
+    async setPluginConfig(pluginName, config) {
+        const plugin = this.plugins.get(pluginName);
+        if (!plugin || !plugin.setConfig) {
+            return false;
+        }
+        try {
+            await plugin.setConfig(config);
+            return true;
+        }
+        catch (error) {
+            console.error(`❌ Failed to set config for plugin ${pluginName}:`, error);
+            return false;
+        }
+    }
+}
+exports.PluginManager = PluginManager;
+//# sourceMappingURL=index.js.map

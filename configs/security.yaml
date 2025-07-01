@@ -1,0 +1,107 @@
+# LogSoul Security Configuration
+security:
+  # API Rate Limiting
+  api_rate_limit:
+    window_ms: 900000  # 15 minutes
+    max_requests: 100
+    skip_successful_requests: false
+  
+  # Content Security Policy
+  csp:
+    default_src: ["'self'"]
+    script_src: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"]
+    style_src: ["'self'", "'unsafe-inline'"]
+    img_src: ["'self'", "data:", "https:"]
+    connect_src: ["'self'", "wss:", "ws:"]
+    font_src: ["'self'"]
+    object_src: ["'none'"]
+    media_src: ["'self'"]
+    frame_src: ["'none'"]
+  
+  # CORS Configuration
+  cors:
+    origin: false  # Set to specific domains in production
+    credentials: true
+    max_age: 86400
+  
+  # Security Headers
+  headers:
+    hsts_max_age: 31536000  # 1 year
+    x_frame_options: DENY
+    x_content_type_options: true
+    x_xss_protection: true
+    referrer_policy: strict-origin-when-cross-origin
+  
+  # Input Validation
+  validation:
+    max_request_size: 10MB
+    max_url_length: 2048
+    max_header_size: 8192
+    allowed_file_extensions:
+      - .log
+      - .txt
+      - .json
+      - .csv
+      - .gz
+    blocked_file_extensions:
+      - .exe
+      - .bat
+      - .cmd
+      - .sh
+      - .ps1
+      - .dll
+      - .so
+  
+  # IP Security
+  ip_security:
+    whitelist: []
+    blacklist: []
+    geo_blocking_enabled: false
+    blocked_countries: []
+    max_requests_per_ip: 1000
+  
+  # Authentication
+  auth:
+    jwt_secret: ${JWT_SECRET}
+    session_timeout: 480  # 8 hours in minutes
+    max_login_attempts: 5
+    lockout_duration: 15  # minutes
+    password_min_length: 12
+    require_special_chars: true
+    require_numbers: true
+    require_uppercase: true
+    require_lowercase: true
+    mfa_enabled: false
+    mfa_type: totp  # totp or sms
+  
+  # Encryption
+  encryption:
+    algorithm: aes-256-gcm
+    key_length: 32
+    iv_length: 16
+    salt_rounds: 10
+  
+  # WAF Rules
+  waf:
+    enabled: true
+    mode: block  # block or monitor
+    custom_rules: []
+    
+  # Audit Logging
+  audit:
+    enabled: true
+    retention_days: 90
+    log_successful_auth: true
+    log_failed_auth: true
+    log_data_access: true
+    log_config_changes: true
+    log_security_events: true
+  
+  # Security Monitoring
+  monitoring:
+    alert_on_suspicious_activity: true
+    alert_on_brute_force: true
+    alert_on_sql_injection: true
+    alert_on_xss: true
+    alert_threshold: 10  # Number of events before alerting
+    alert_window: 300  # seconds

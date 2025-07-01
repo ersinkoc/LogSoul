@@ -1,0 +1,16 @@
+{
+  "name": "logsoul-geo-location",
+  "version": "1.0.0",
+  "description": "Adds geographical location data to IP addresses in log entries",
+  "author": "LogSoul Team",
+  "main": "index.js",
+  "logsoul_version": "1.0.0",
+  "dependencies": {
+    "geoip-lite": "^1.4.10"
+  },
+  "keywords": [
+    "logsoul-plugin",
+    "geolocation",
+    "ip-lookup"
+  ]
+}

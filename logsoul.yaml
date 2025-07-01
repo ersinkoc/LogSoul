@@ -1,0 +1,28 @@
+server:
+  port: 9000
+  host: 0.0.0.0
+storage:
+  db_path: ./logsoul.db
+  retention_days: 30
+monitoring:
+  scan_interval: 60s
+  batch_size: 1000
+  max_file_size: 1GB
+alerts:
+  email:
+    enabled: false
+    smtp_server: ''
+  webhook:
+    enabled: false
+    url: ''
+log_paths:
+  - ./test/testdata
+ignore_patterns:
+  - health-check
+  - monitoring/ping
+  - favicon.ico
+  - robots.txt
+panel_paths:
+  plesk: /var/www/vhosts/{domain}/logs/
+  cpanel: /home/{user}/logs/
+  directadmin: /var/log/httpd/domains/

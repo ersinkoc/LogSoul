@@ -1,0 +1,468 @@
+import { EventEmitter } from 'events';
+import { Storage } from '../storage';
+import { LogAnalyzer } from '../analyzer';
+import { Config, Alert, LogEntry } from '../types';
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  domain?: string;
+  type: 'error_rate' | 'response_time' | 'traffic_spike' | 'security_threat' | 'custom';
+  condition: AlertCondition;
+  enabled: boolean;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  cooldown: number; // minutes
+  lastTriggered?: Date;
+}
+
+export interface AlertCondition {
+  threshold: number;
+  timeWindow: string; // 5m, 1h, 24h
+  operator: '>' | '<' | '=' | '>=' | '<=';
+  metric: string;
+}
+
+export interface NotificationChannel {
+  type: 'email' | 'webhook' | 'console';
+  config: any;
+  enabled: boolean;
+}
+
+export class AlertManager extends EventEmitter {
+  private storage: Storage;
+  private analyzer: LogAnalyzer;
+  private config: Config;
+  private rules: Map<string, AlertRule> = new Map();
+  private channels: NotificationChannel[] = [];
+  private checkInterval?: NodeJS.Timeout;
+
+  constructor(storage: Storage, analyzer: LogAnalyzer, config: Config) {
+    super();
+    this.storage = storage;
+    this.analyzer = analyzer;
+    this.config = config;
+    this.initializeDefaultRules();
+    this.initializeChannels();
+  }
+
+  private initializeDefaultRules(): void {
+    // High Error Rate Rule
+    this.addRule({
+      id: 'high_error_rate',
+      name: 'High Error Rate',
+      type: 'error_rate',
+      condition: {
+        threshold: 5,
+        timeWindow: '5m',
+        operator: '>',
+        metric: 'error_rate_percent'
+      },
+      enabled: true,
+      severity: 'high',
+      cooldown: 15
+    });
+
+    // Slow Response Time Rule
+    this.addRule({
+      id: 'slow_response',
+      name: 'Slow Response Time',
+      type: 'response_time',
+      condition: {
+        threshold: 3000,
+        timeWindow: '5m',
+        operator: '>',
+        metric: 'avg_response_time_ms'
+      },
+      enabled: true,
+      severity: 'medium',
+      cooldown: 10
+    });
+
+    // Traffic Spike Rule
+    this.addRule({
+      id: 'traffic_spike',
+      name: 'Traffic Spike',
+      type: 'traffic_spike',
+      condition: {
+        threshold: 300,
+        timeWindow: '5m',
+        operator: '>',
+        metric: 'requests_per_minute'
+      },
+      enabled: true,
+      severity: 'medium',
+      cooldown: 30
+    });
+
+    // Critical Error Rate Rule
+    this.addRule({
+      id: 'critical_errors',
+      name: 'Critical Error Rate',
+      type: 'error_rate',
+      condition: {
+        threshold: 20,
+        timeWindow: '5m',
+        operator: '>',
+        metric: 'error_rate_percent'
+      },
+      enabled: true,
+      severity: 'critical',
+      cooldown: 5
+    });
+
+    // Security Threat Rule
+    this.addRule({
+      id: 'security_attacks',
+      name: 'Security Attacks Detected',
+      type: 'security_threat',
+      condition: {
+        threshold: 10,
+        timeWindow: '5m',
+        operator: '>',
+        metric: 'security_events'
+      },
+      enabled: true,
+      severity: 'high',
+      cooldown: 20
+    });
+  }
+
+  private initializeChannels(): void {
+    // Console notification (always enabled)
+    this.channels.push({
+      type: 'console',
+      config: {},
+      enabled: true
+    });
+
+    // Email notification
+    if (this.config.alerts.email.enabled) {
+      this.channels.push({
+        type: 'email',
+        config: {
+          smtp_server: this.config.alerts.email.smtp_server
+        },
+        enabled: true
+      });
+    }
+
+    // Webhook notification
+    if (this.config.alerts.webhook.enabled) {
+      this.channels.push({
+        type: 'webhook',
+        config: {
+          url: this.config.alerts.webhook.url
+        },
+        enabled: true
+      });
+    }
+  }
+
+  addRule(rule: AlertRule): void {
+    this.rules.set(rule.id, rule);
+    console.log(`📋 Added alert rule: ${rule.name}`);
+  }
+
+  removeRule(ruleId: string): void {
+    this.rules.delete(ruleId);
+    console.log(`🗑️  Removed alert rule: ${ruleId}`);
+  }
+
+  enableRule(ruleId: string): void {
+    const rule = this.rules.get(ruleId);
+    if (rule) {
+      rule.enabled = true;
+      console.log(`✅ Enabled alert rule: ${rule.name}`);
+    }
+  }
+
+  disableRule(ruleId: string): void {
+    const rule = this.rules.get(ruleId);
+    if (rule) {
+      rule.enabled = false;
+      console.log(`❌ Disabled alert rule: ${rule.name}`);
+    }
+  }
+
+  start(): void {
+    if (this.checkInterval) {
+      console.warn('Alert manager is already running');
+      return;
+    }
+
+    console.log('🚨 Starting alert manager...');
+    
+    // Check alerts every minute
+    this.checkInterval = setInterval(() => {
+      this.checkAlerts().catch(error => {
+        console.error('Error checking alerts:', error);
+      });
+    }, 60000);
+
+    console.log('✅ Alert manager started');
+  }
+
+  stop(): void {
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = undefined;
+      console.log('⏹️  Alert manager stopped');
+    }
+  }
+
+  private async checkAlerts(): Promise<void> {
+    const domains = await this.storage.getDomains();
+    
+    for (const domain of domains) {
+      await this.checkDomainAlerts(domain.name);
+    }
+  }
+
+  private async checkDomainAlerts(domainName: string): Promise<void> {
+    try {
+      for (const [ruleId, rule] of this.rules) {
+        if (!rule.enabled) continue;
+        if (rule.domain && rule.domain !== domainName) continue;
+        if (this.isInCooldown(rule)) continue;
+
+        const shouldAlert = await this.evaluateRule(domainName, rule);
+        if (shouldAlert) {
+          await this.triggerAlert(domainName, rule);
+        }
+      }
+    } catch (error) {
+      console.error(`Error checking alerts for ${domainName}:`, error);
+    }
+  }
+
+  private isInCooldown(rule: AlertRule): boolean {
+    if (!rule.lastTriggered) return false;
+    
+    const cooldownMs = rule.cooldown * 60 * 1000;
+    const timeSinceLastTrigger = Date.now() - rule.lastTriggered.getTime();
+    
+    return timeSinceLastTrigger < cooldownMs;
+  }
+
+  private async evaluateRule(domainName: string, rule: AlertRule): Promise<boolean> {
+    const timeWindow = this.parseTimeWindow(rule.condition.timeWindow);
+    
+    try {
+      switch (rule.type) {
+        case 'error_rate':
+          return await this.checkErrorRate(domainName, rule, timeWindow);
+        
+        case 'response_time':
+          return await this.checkResponseTime(domainName, rule, timeWindow);
+        
+        case 'traffic_spike':
+          return await this.checkTrafficSpike(domainName, rule, timeWindow);
+        
+        case 'security_threat':
+          return await this.checkSecurityThreats(domainName, rule, timeWindow);
+        
+        default:
+          return false;
+      }
+    } catch (error) {
+      console.error(`Error evaluating rule ${rule.id}:`, error);
+      return false;
+    }
+  }
+
+  private parseTimeWindow(timeWindow: string): string {
+    const match = timeWindow.match(/^(\d+)([mhd])$/);
+    if (!match) return '5m';
+    
+    const [, amount, unit] = match;
+    const numAmount = parseInt(amount);
+    switch (unit) {
+      case 'm': return `${numAmount}m`;
+      case 'h': return `${numAmount * 60}m`;
+      case 'd': return `${numAmount * 24 * 60}m`;
+      default: return '5m';
+    }
+  }
+
+  private async checkErrorRate(domainName: string, rule: AlertRule, timeWindow: string): Promise<boolean> {
+    const domain = await this.storage.getDomain(domainName);
+    if (!domain) return false;
+
+    const stats = await this.storage.getDomainStats(domain.id, timeWindow);
+    if (!stats) return false;
+
+    const errorRate = stats.error_rate;
+    return this.compareValues(errorRate, rule.condition.threshold, rule.condition.operator);
+  }
+
+  private async checkResponseTime(domainName: string, rule: AlertRule, timeWindow: string): Promise<boolean> {
+    const domain = await this.storage.getDomain(domainName);
+    if (!domain) return false;
+
+    const stats = await this.storage.getDomainStats(domain.id, timeWindow);
+    if (!stats) return false;
+
+    const avgResponseTime = stats.avg_response_time;
+    return this.compareValues(avgResponseTime, rule.condition.threshold, rule.condition.operator);
+  }
+
+  private async checkTrafficSpike(domainName: string, rule: AlertRule, timeWindow: string): Promise<boolean> {
+    const domain = await this.storage.getDomain(domainName);
+    if (!domain) return false;
+
+    const stats = await this.storage.getDomainStats(domain.id, timeWindow);
+    if (!stats) return false;
+
+    const requestsPerMinute = stats.requests_per_minute;
+    return this.compareValues(requestsPerMinute, rule.condition.threshold, rule.condition.operator);
+  }
+
+  private async checkSecurityThreats(domainName: string, rule: AlertRule, timeWindow: string): Promise<boolean> {
+    const analysis = await this.analyzer.analyzeDomain(domainName, timeWindow);
+    const threatCount = analysis.securityThreats.length;
+    
+    return this.compareValues(threatCount, rule.condition.threshold, rule.condition.operator);
+  }
+
+  private compareValues(value: number, threshold: number, operator: string): boolean {
+    switch (operator) {
+      case '>': return value > threshold;
+      case '<': return value < threshold;
+      case '>=': return value >= threshold;
+      case '<=': return value <= threshold;
+      case '=': return value === threshold;
+      default: return false;
+    }
+  }
+
+  private async triggerAlert(domainName: string, rule: AlertRule): Promise<void> {
+    const domain = await this.storage.getDomain(domainName);
+    if (!domain) return;
+
+    const message = `Alert: ${rule.name} triggered for ${domainName}`;
+    
+    // Store alert in database
+    await this.storage.addAlert(domain.id, rule.type, message, rule.severity);
+    
+    // Update rule last triggered time
+    rule.lastTriggered = new Date();
+    
+    // Send notifications
+    await this.sendNotifications({
+      id: 0,
+      domain_id: domain.id,
+      type: rule.type,
+      message,
+      severity: rule.severity,
+      created_at: new Date()
+    });
+
+    console.log(`🚨 Alert triggered: ${message}`);
+    this.emit('alert', { domain: domainName, rule, message });
+  }
+
+  private async sendNotifications(alert: Alert): Promise<void> {
+    for (const channel of this.channels) {
+      if (!channel.enabled) continue;
+
+      try {
+        await this.sendNotification(channel, alert);
+      } catch (error) {
+        console.error(`Failed to send notification via ${channel.type}:`, error);
+      }
+    }
+  }
+
+  private async sendNotification(channel: NotificationChannel, alert: Alert): Promise<void> {
+    switch (channel.type) {
+      case 'console':
+        this.sendConsoleNotification(alert);
+        break;
+      
+      case 'email':
+        await this.sendEmailNotification(channel.config, alert);
+        break;
+      
+      case 'webhook':
+        await this.sendWebhookNotification(channel.config, alert);
+        break;
+    }
+  }
+
+  private sendConsoleNotification(alert: Alert): void {
+    const severityIcon = {
+      low: '🟡',
+      medium: '🟠',
+      high: '🔴',
+      critical: '🚨'
+    }[alert.severity];
+
+    console.log(`${severityIcon} [${alert.severity.toUpperCase()}] ${alert.message}`);
+  }
+
+  private async sendEmailNotification(config: any, alert: Alert): Promise<void> {
+    // Email implementation would go here
+    // For now, just log that we would send an email
+    console.log(`📧 Would send email alert: ${alert.message}`);
+  }
+
+  private async sendWebhookNotification(config: any, alert: Alert): Promise<void> {
+    // Webhook implementation would go here
+    // For now, just log that we would send a webhook
+    console.log(`🔗 Would send webhook alert to ${config.url}: ${alert.message}`);
+  }
+
+  async processLogEntry(entry: LogEntry): Promise<void> {
+    // Real-time alert processing for individual log entries
+    // Check for immediate threats that don't require time windows
+    
+    if (entry.status >= 500) {
+      // Check if this is part of a pattern
+      await this.checkImmediateAlerts(entry);
+    }
+  }
+
+  private async checkImmediateAlerts(entry: LogEntry): Promise<void> {
+    // Check for patterns that should trigger immediate alerts
+    const domain = await this.storage.getDomain(entry.domain_id.toString());
+    if (!domain) return;
+
+    // Example: Multiple 500 errors in quick succession
+    const recentErrors = await this.storage.getLogsByTimeRange(
+      entry.domain_id,
+      new Date(Date.now() - 5 * 60 * 1000), // Last 5 minutes
+      new Date()
+    );
+
+    const recent500s = recentErrors.filter(log => log.status >= 500).length;
+    
+    if (recent500s > 10) {
+      await this.storage.addAlert(
+        entry.domain_id,
+        'critical_errors',
+        `${recent500s} server errors in the last 5 minutes`,
+        'critical'
+      );
+    }
+  }
+
+  getRules(): AlertRule[] {
+    return Array.from(this.rules.values());
+  }
+
+  getRule(ruleId: string): AlertRule | undefined {
+    return this.rules.get(ruleId);
+  }
+
+  getChannels(): NotificationChannel[] {
+    return this.channels;
+  }
+
+  addChannel(channel: NotificationChannel): void {
+    this.channels.push(channel);
+  }
+
+  removeChannel(type: string): void {
+    this.channels = this.channels.filter(ch => ch.type !== type);
+  }
+}

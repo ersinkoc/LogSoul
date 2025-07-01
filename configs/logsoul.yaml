@@ -1,0 +1,41 @@
+server:
+  port: 3000
+  host: "0.0.0.0"
+
+storage:
+  db_path: "./logsoul.db"
+  retention_days: 30
+
+monitoring:
+  scan_interval: 60s
+  batch_size: 1000
+  max_file_size: 1GB
+
+alerts:
+  email:
+    enabled: false
+    smtp_server: ""
+  webhook:
+    enabled: false
+    url: ""
+
+# Additional custom log paths
+log_paths:
+  - "/var/log/nginx"
+  - "/var/log/apache2"
+  - "/var/www/vhosts"
+  - "/home/*/logs"
+  - "/var/www/html"
+
+# Patterns to ignore in logs
+ignore_patterns:
+  - "health-check"
+  - "monitoring/ping"
+  - "favicon.ico"
+  - "robots.txt"
+
+# Common log paths by hosting panel
+panel_paths:
+  plesk: "/var/www/vhosts/{domain}/logs/"
+  cpanel: "/home/{user}/logs/"
+  directadmin: "/var/log/httpd/domains/"

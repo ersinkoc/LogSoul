@@ -1,0 +1,199 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "LogSoul Monitoring Dashboard",
+    "tags": ["logsoul", "monitoring", "logs"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "5s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Domain Health Scores",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "logsoul_domain_health_score",
+            "legendFormat": "{{domain}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 60},
+                {"color": "green", "value": 80}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Requests per Minute",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(logsoul_requests_total[5m]) * 60",
+            "legendFormat": "{{domain}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/min", "min": 0}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(logsoul_errors_total[5m]) / rate(logsoul_requests_total[5m]) * 100",
+            "legendFormat": "{{domain}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Error %", "min": 0, "max": 100}
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "evaluator": {"params": [5], "type": "gt"}
+            }
+          ],
+          "executionErrorState": "alerting",
+          "for": "2m",
+          "frequency": "10s",
+          "handler": 1,
+          "name": "High Error Rate",
+          "noDataState": "no_data"
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "logsoul_response_time_avg",
+            "legendFormat": "Average - {{domain}}"
+          },
+          {
+            "expr": "logsoul_response_time_95th",
+            "legendFormat": "95th percentile - {{domain}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Milliseconds", "min": 0}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Security Threats",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "logsoul_security_threats_total",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "columns": [
+                {"text": "Domain", "value": "domain"},
+                {"text": "Threat Type", "value": "type"},
+                {"text": "Count", "value": "Value"},
+                {"text": "Severity", "value": "severity"}
+              ]
+            }
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Top IPs",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "topk(10, logsoul_top_ips)",
+            "legendFormat": "{{ip}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 7,
+        "title": "Top Pages",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(20, logsoul_top_pages)",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      },
+      {
+        "id": 8,
+        "title": "LogSoul System Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes{job='logsoul'}",
+            "legendFormat": "Memory Usage"
+          },
+          {
+            "expr": "rate(process_cpu_seconds_total{job='logsoul'}[5m]) * 100",
+            "legendFormat": "CPU Usage %"
+          }
+        ],
+        "yAxes": [
+          {"label": "Bytes / Percent"}
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32}
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "domain",
+          "type": "query",
+          "query": "label_values(logsoul_requests_total, domain)",
+          "refresh": 1,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Alerts",
+          "datasource": "prometheus",
+          "expr": "ALERTS{alertname=~\"LogSoul.*\"}",
+          "titleFormat": "{{alertname}}",
+          "textFormat": "{{description}}"
+        }
+      ]
+    }
+  }
+}

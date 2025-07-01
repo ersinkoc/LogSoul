@@ -1,0 +1,81 @@
+{
+  "name": "logsoul",
+  "version": "1.0.0",
+  "main": "dist/src/index.js",
+  "bin": {
+    "logsoul": "./dist/src/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "cli": "ts-node src/cli/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "description": "Smart log monitoring tool that captures the soul of your domains - Feel the pulse of your infrastructure with automatic discovery, real-time analytics, and intelligent alerting",
+  "keywords": [
+    "log-monitoring",
+    "log-analysis",
+    "web-server-logs",
+    "nginx-logs",
+    "apache-logs",
+    "security-monitoring",
+    "performance-monitoring",
+    "real-time-analytics",
+    "domain-monitoring",
+    "infrastructure-monitoring",
+    "devops",
+    "sysadmin",
+    "cli-tool",
+    "dashboard",
+    "alerts",
+    "metrics",
+    "typescript",
+    "nodejs"
+  ],
+  "author": {
+    "name": "LogSoul Team",
+    "email": "team@logsoul.io",
+    "url": "https://logsoul.io"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/user/logsoul#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/user/logsoul.git"
+  },
+  "bugs": {
+    "url": "https://github.com/user/logsoul/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
+  },
+  "dependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/js-yaml": "^4.0.9",
+    "@types/jsonwebtoken": "^9.0.10",
+    "chalk": "^5.4.1",
+    "chokidar": "^4.0.3",
+    "commander": "^14.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.1",
+    "fast-glob": "^3.3.3",
+    "glob": "^11.0.3",
+    "helmet": "^8.1.0",
+    "js-yaml": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "moment": "^2.30.1",
+    "sqlite3": "^5.1.7",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^24.0.7",
+    "@types/ws": "^8.18.1",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}

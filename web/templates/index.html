@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogSoul - Feel the pulse of your domains</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.30.1/moment.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="logo">
+                    <h1>🔮 LogSoul</h1>
+                    <p>Feel the pulse of your domains</p>
+                </div>
+                <nav>
+                    <button class="nav-btn active" onclick="showSection('dashboard')">Dashboard</button>
+                    <button class="nav-btn" onclick="showSection('domains')">Domains</button>
+                    <button class="nav-btn" onclick="showSection('realtime')">Real-time</button>
+                    <button class="nav-btn" onclick="showSection('alerts')">Alerts</button>
+                    <button class="nav-btn" onclick="showSection('settings')">Settings</button>
+                    <div class="language-switcher">
+                        <select onchange="switchLanguage(this.value)" id="language-select">
+                            <option value="en">English</option>
+                            <option value="tr">Türkçe</option>
+                        </select>
+                    </div>
+                </nav>
+            </div>
+        </header>
+
+        <main>
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section active">
+                <div class="section-header">
+                    <h2>📊 Dashboard</h2>
+                    <button class="btn btn-primary" onclick="refreshDashboard()">🔄 Refresh</button>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-domains">0</div>
+                        <div class="stat-label">Domains</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-requests">0</div>
+                        <div class="stat-label">Requests/hr</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avg-health">100</div>
+                        <div class="stat-label">Avg Health</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="active-alerts">0</div>
+                        <div class="stat-label">Active Alerts</div>
+                    </div>
+                </div>
+
+                <div class="domains-overview">
+                    <h3>Domain Overview</h3>
+                    <div id="domains-list" class="domains-grid">
+                        <!-- Domain cards will be inserted here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Domains Section -->
+            <section id="domains" class="section">
+                <div class="section-header">
+                    <h2>🌐 Domains</h2>
+                    <div class="section-actions">
+                        <button class="btn btn-secondary" onclick="scanForDomains()">🔍 Discover</button>
+                        <button class="btn btn-primary" onclick="showAddDomainDialog()">➕ Add Domain</button>
+                    </div>
+                </div>
+                
+                <div class="domains-table-container">
+                    <table class="domains-table">
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>Health</th>
+                                <th>Requests/min</th>
+                                <th>Error Rate</th>
+                                <th>Last Seen</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domains-table-body">
+                            <!-- Domain rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Real-time Section -->
+            <section id="realtime" class="section">
+                <div class="section-header">
+                    <h2>⚡ Real-time Logs</h2>
+                    <div class="section-actions">
+                        <select id="realtime-domain" onchange="switchRealtimeDomain()">
+                            <option value="">Select Domain</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="toggleRealtime()" id="realtime-toggle">▶️ Start</button>
+                        <button class="btn btn-secondary" onclick="clearRealtimeLogs()">🗑️ Clear</button>
+                    </div>
+                </div>
+                
+                <div class="realtime-container">
+                    <div class="realtime-status" id="realtime-status">
+                        <span class="status-indicator disconnected"></span>
+                        Disconnected
+                    </div>
+                    <div class="logs-container" id="realtime-logs">
+                        <!-- Real-time logs will appear here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alerts Section -->
+            <section id="alerts" class="section">
+                <div class="section-header">
+                    <h2>🚨 Alerts</h2>
+                    <button class="btn btn-primary" onclick="refreshAlerts()">🔄 Refresh</button>
+                </div>
+                
+                <div class="alerts-container" id="alerts-list">
+                    <!-- Alerts will be inserted here -->
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings" class="section">
+                <div class="section-header">
+                    <h2>⚙️ Settings</h2>
+                </div>
+                
+                <div class="settings-container">
+                    <div class="settings-group">
+                        <h3>Monitor Settings</h3>
+                        <div class="setting-item">
+                            <label>Scan Interval (seconds):</label>
+                            <input type="number" id="scan-interval" value="60" min="1" max="3600">
+                        </div>
+                        <div class="setting-item">
+                            <label>Batch Size:</label>
+                            <input type="number" id="batch-size" value="1000" min="100" max="10000">
+                        </div>
+                    </div>
+                    
+                    <div class="settings-group">
+                        <h3>Alert Settings</h3>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="email-alerts"> Enable Email Alerts
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="webhook-alerts"> Enable Webhook Alerts
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-group">
+                        <h3>Language Settings</h3>
+                        <div class="setting-item">
+                            <label>Language:</label>
+                            <select onchange="switchLanguage(this.value)" id="settings-language-select">
+                                <option value="en">English</option>
+                                <option value="tr">Türkçe</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add Domain Dialog -->
+    <div id="add-domain-dialog" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Domain</h3>
+                <button class="close-btn" onclick="hideAddDomainDialog()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label for="domain-name">Domain Name:</label>
+                <input type="text" id="domain-name" placeholder="example.com" />
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="hideAddDomainDialog()">Cancel</button>
+                    <button class="btn btn-primary" onclick="addDomain()">Add Domain</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
