@@ -259,6 +259,16 @@ export class Storage {
     });
   }
 
+  private timeRangeToMinutes(timeRange: string): number {
+    const timeRangeMinutes: { [key: string]: number } = {
+      '1h': 60,
+      '24h': 1440,
+      '7d': 10080,
+      '30d': 43200
+    };
+    return timeRangeMinutes[timeRange] || 60;
+  }
+
   async getDomainStats(domainId: number, timeRange: string = '1h'): Promise<DomainStats | null> {
     const timeRangeMap: { [key: string]: string } = {
       '1h': '-1 hour',
@@ -289,7 +299,7 @@ export class Storage {
         } else if (row && row.total_requests > 0) {
           const stats: DomainStats = {
             domain: row.domain,
-            requests_per_minute: row.total_requests / (parseInt(timeRange) || 60),
+            requests_per_minute: row.total_requests / this.timeRangeToMinutes(timeRange),
             error_rate: (row.error_count / row.total_requests) * 100,
             avg_response_time: row.avg_response_time || 0,
             traffic_volume: row.total_bandwidth || 0,

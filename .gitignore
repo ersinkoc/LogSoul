@@ -1,2 +1,14 @@
 node_modules/*
 .env
+
+# Database files
+*.db
+*.db-journal
+test-*.db
+
+# Temporary files
+*.log
+!test/testdata/**/*.log
+*.swp
+*~
+.DS_Store
