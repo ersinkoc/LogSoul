@@ -9,16 +9,16 @@ export declare class SecurityMiddleware {
     private waf;
     private rateLimiters;
     constructor(config: SecurityMiddlewareConfig);
-    applySecurityHeaders(): (req: import("http").IncomingMessage, res: import("http").ServerResponse, next: (err?: unknown) => void) => void;
+    applySecurityHeaders(): any;
     customSecurityHeaders(): (req: Request, res: Response, next: NextFunction) => void;
     globalRateLimit(): any;
     apiRateLimit(): any;
     authRateLimit(): any;
-    validateInput(): (req: Request, res: Response, next: NextFunction) => Promise<Response<any, Record<string, any>> | undefined>;
-    ipSecurity(): (req: Request, res: Response, next: NextFunction) => Promise<void | Response<any, Record<string, any>>>;
-    csrfProtection(): (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>;
+    validateInput(): (req: Request, res: Response, next: NextFunction) => Promise<any>;
+    ipSecurity(): (req: Request, res: Response, next: NextFunction) => Promise<any>;
+    csrfProtection(): (req: Request, res: Response, next: NextFunction) => any;
     auditLog(): (req: Request, res: Response, next: NextFunction) => Promise<void>;
-    fileUploadSecurity(): (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>;
+    fileUploadSecurity(): (req: Request, res: Response, next: NextFunction) => any;
     applyAll(): any[];
 }
 export declare const createSecurityMiddleware: (config: SecurityMiddlewareConfig) => SecurityMiddleware;

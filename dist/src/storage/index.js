@@ -148,6 +148,27 @@ class Storage {
             });
         });
     }
+    async getDomainById(id) {
+        return new Promise((resolve, reject) => {
+            this.db.get('SELECT * FROM domains WHERE id = ?', [id], (err, row) => {
+                if (err) {
+                    reject(err);
+                }
+                else if (row) {
+                    resolve({
+                        id: row.id,
+                        name: row.name,
+                        created_at: new Date(row.created_at),
+                        last_seen: new Date(row.last_seen),
+                        health_score: row.health_score
+                    });
+                }
+                else {
+                    resolve(null);
+                }
+            });
+        });
+    }
     async getDomains() {
         return new Promise((resolve, reject) => {
             this.db.all('SELECT * FROM domains ORDER BY name', (err, rows) => {
@@ -257,6 +278,15 @@ class Storage {
             });
         });
     }
+    timeRangeToMinutes(timeRange) {
+        const timeRangeMinutes = {
+            '1h': 60,
+            '24h': 1440,
+            '7d': 10080,
+            '30d': 43200
+        };
+        return timeRangeMinutes[timeRange] || 60;
+    }
     async getDomainStats(domainId, timeRange = '1h') {
         const timeRangeMap = {
             '1h': '-1 hour',
@@ -286,7 +316,7 @@ class Storage {
                 else if (row && row.total_requests > 0) {
                     const stats = {
                         domain: row.domain,
-                        requests_per_minute: row.total_requests / (parseInt(timeRange) || 60),
+                        requests_per_minute: row.total_requests / this.timeRangeToMinutes(timeRange),
                         error_rate: (row.error_count / row.total_requests) * 100,
                         avg_response_time: row.avg_response_time || 0,
                         traffic_volume: row.total_bandwidth || 0,

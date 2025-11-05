@@ -27,7 +27,7 @@ export declare class WebApplicationFirewall {
         rule?: WAFRule;
         match?: string;
     }>;
-    middleware(): (req: Request, res: Response, next: NextFunction) => Promise<Response<any, Record<string, any>> | undefined>;
+    middleware(): (req: Request, res: Response, next: NextFunction) => Promise<any>;
     getStats(): {
         totalRules: number;
         enabledRules: number;
