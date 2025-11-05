@@ -108,12 +108,12 @@ class FileMonitor extends events_1.EventEmitter {
     }
     async handleFileChange(logFile) {
         try {
-            const currentPosition = this.filePositions.get(logFile.path) || 0;
+            let currentPosition = this.filePositions.get(logFile.path) || 0;
             const stats = fs.statSync(logFile.path);
             if (stats.size < currentPosition) {
                 console.log(`📄 File rotated: ${logFile.path}`);
                 this.filePositions.set(logFile.path, 0);
-                return;
+                currentPosition = 0;
             }
             if (stats.size === currentPosition) {
                 return;

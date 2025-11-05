@@ -79,10 +79,34 @@ export interface Config {
     panel_paths: {
         [key: string]: string;
     };
+    security?: {
+        api_rate_limit?: {
+            window_ms: number;
+            max_requests: number;
+            skip_successful_requests: boolean;
+        };
+        cors?: {
+            origin: string[] | boolean;
+            credentials: boolean;
+            max_age: number;
+        };
+        auth?: {
+            jwt_secret: string;
+            session_timeout: number;
+            max_login_attempts: number;
+            lockout_duration: number;
+            password_min_length: number;
+            require_special_chars: boolean;
+            require_numbers: boolean;
+        };
+        waf?: {
+            enabled: boolean;
+            mode: 'block' | 'monitor';
+        };
+    };
 }
 export interface DiscoveryResult {
     domains: Set<string>;
     log_files: LogFile[];
     errors: string[];
 }
-//# sourceMappingURL=index.d.ts.map

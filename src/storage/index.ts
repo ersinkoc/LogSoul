@@ -135,6 +135,30 @@ export class Storage {
     });
   }
 
+  async getDomainById(id: number): Promise<Domain | null> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        'SELECT * FROM domains WHERE id = ?',
+        [id],
+        (err, row: any) => {
+          if (err) {
+            reject(err);
+          } else if (row) {
+            resolve({
+              id: row.id,
+              name: row.name,
+              created_at: new Date(row.created_at),
+              last_seen: new Date(row.last_seen),
+              health_score: row.health_score
+            });
+          } else {
+            resolve(null);
+          }
+        }
+      );
+    });
+  }
+
   async getDomains(): Promise<Domain[]> {
     return new Promise((resolve, reject) => {
       this.db.all(

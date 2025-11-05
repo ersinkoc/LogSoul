@@ -424,7 +424,7 @@ export class AlertManager extends EventEmitter {
 
   private async checkImmediateAlerts(entry: LogEntry): Promise<void> {
     // Check for patterns that should trigger immediate alerts
-    const domain = await this.storage.getDomain(entry.domain_id.toString());
+    const domain = await this.storage.getDomainById(entry.domain_id);
     if (!domain) return;
 
     // Example: Multiple 500 errors in quick succession
